@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keerthi | Modern Stopwatch & Timer</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              cyan: '#00f2fe',
+              blue: '#4facfe',
+              purple: '#7f00ff',
+              pink: '#e100ff'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background: radial-gradient(circle at 50% 10%, #181928, #090a10);
+      min-height: 100vh;
+      color: #f3f4f6;
+    }
+    
+    .glass-card {
+      background: rgba(22, 27, 46, 0.65);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    }
+
+    .glass-input {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    .glass-input:focus {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: #00f2fe;
+      outline: none;
+      box-shadow: 0 0 15px rgba(0, 242, 254, 0.25);
+    }
+
+    .ring-progress {
+      transition: stroke-dashoffset 0.05s linear;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    .pulse-animation {
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% {
+        filter: drop-shadow(0 0 10px rgba(0, 242, 254, 0.4));
+      }
+      50% {
+        filter: drop-shadow(0 0 25px rgba(0, 242, 254, 0.8));
+      }
+    }
+
+    /* Custom scrollbar for lap table */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen justify-between selection:bg-brand-cyan selection:text-black">
+
+  <!-- Header / Navigation -->
+  <header class="max-w-4xl w-full mx-auto p-4 sm:p-6 flex flex-wrap justify-between items-center gap-4">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 rounded-xl bg-gradient-to-tr from-brand-blue to-brand-cyan shadow-lg shadow-brand-cyan/20">
+        <i data-lucide="timer" class="w-6 h-6 text-slate-950 font-bold"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">Keerthi</h1>
+        <p class="text-xs text-slate-400 font-medium">Precision Web Timekeeper</p>
+      </div>
+    </div>
+
+    <!-- Mode Switcher Tabs -->
+    <div class="flex items-center bg-slate-900/80 p-1.5 rounded-2xl border border-white/10 shadow-inner">
+      <button id="tab-stopwatch" onclick="switchMode('stopwatch')" class="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-300 bg-gradient-to-r from-brand-blue to-brand-cyan text-slate-950 shadow-md">
+        <i data-lucide="watch" class="w-4 h-4"></i> Stopwatch
+      </button>
+      <button id="tab-timer" onclick="switchMode('timer')" class="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-300 text-slate-400 hover:text-white">
+        <i data-lucide="hourglass" class="w-4 h-4"></i> Timer
+      </button>
+    </div>
+
+    <!-- Share Link Button -->
+    <button onclick="shareURL()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold glass-card text-slate-300 hover:text-white border border-white/10 hover:border-brand-cyan/40 transition-all">
+      <i data-lucide="share-2" class="w-3.5 h-3.5 text-brand-cyan"></i>
+      <span>Share Link</span>
+    </button>
+  </header>
+
+  <!-- Main Display Card -->
+  <main class="max-w-xl w-full mx-auto px-4 my-auto py-6">
+    <div class="glass-card rounded-3xl p-6 sm:p-8 flex flex-col items-center relative overflow-hidden">
+      
+      <!-- Ambient Glow Behind Display -->
+      <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-72 bg-brand-cyan/15 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- Toast Alert Notification -->
+      <div id="toast" class="opacity-0 translate-y-2 pointer-events-none transition-all duration-300 absolute top-4 bg-slate-800/90 border border-brand-cyan/40 text-brand-cyan px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-2 shadow-lg z-50">
+        <i data-lucide="check-circle" class="w-4 h-4"></i>
+        <span id="toast-text">URL copied to clipboard!</span>
+      </div>
+
+      <!-- Circular Display Container -->
+      <div class="relative w-72 h-72 sm:w-80 sm:h-80 my-4 flex items-center justify-center">
+        <!-- SVG Progress Ring -->
+        <svg class="w-full h-full" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="44" stroke="currentColor" stroke-width="3" fill="none" class="text-slate-800/80" />
+          <circle id="progress-ring" cx="50" cy="50" r="44" stroke="url(#cyan-gradient)" stroke-width="3.5" fill="none" stroke-dasharray="276.46" stroke-dashoffset="0" stroke-linecap="round" class="ring-progress pulse-animation" />
+          <defs>
+            <linearGradient id="cyan-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00f2fe" />
+              <stop offset="100%" stop-color="#4facfe" />
+            </linearGradient>
+            <linearGradient id="purple-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#e100ff" />
+              <stop offset="100%" stop-color="#7f00ff" />
+            </linearGradient>
+          </defs>
+        </svg>
+
+        <!-- Main Time Text -->
+        <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <!-- Main Time -->
+          <div id="display-time" class="font-mono text-4xl sm:text-5xl font-bold tracking-tight text-white drop-shadow-md">
+            00:00:00
+          </div>
+          <!-- Sub-Time (Milliseconds / State info) -->
+          <div id="display-subtime" class="font-mono text-brand-cyan text-base sm:text-lg font-medium mt-1">
+            .00
+          </div>
+          <!-- Timer Label / Setup Input -->
+          <div id="timer-inputs" class="hidden flex items-center gap-1.5 mt-3">
+            <input type="number" id="input-h" min="0" max="99" value="0" placeholder="00" class="glass-input w-12 h-9 rounded-lg text-center font-mono text-sm">
+            <span class="text-slate-500 font-bold">:</span>
+            <input type="number" id="input-m" min="0" max="59" value="05" placeholder="05" class="glass-input w-12 h-9 rounded-lg text-center font-mono text-sm">
+            <span class="text-slate-500 font-bold">:</span>
+            <input type="number" id="input-s" min="0" max="59" value="00" placeholder="00" class="glass-input w-12 h-9 rounded-lg text-center font-mono text-sm">
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Timer Presets (Visible only in Timer mode) -->
+      <div id="preset-buttons" class="hidden flex flex-wrap justify-center gap-2 mb-6">
+        <button onclick="setTimerPreset(1)" class="px-3 py-1.5 rounded-xl text-xs font-semibold glass-card text-slate-300 hover:text-white border border-white/10 hover:border-brand-cyan/50 transition-all">+1m</button>
+        <button onclick="setTimerPreset(5)" class="px-3 py-1.5 rounded-xl text-xs font-semibold glass-card text-slate-300 hover:text-white border border-white/10 hover:border-brand-cyan/50 transition-all">+5m</button>
+        <button onclick="setTimerPreset(10)" class="px-3 py-1.5 rounded-xl text-xs font-semibold glass-card text-slate-300 hover:text-white border border-white/10 hover:border-brand-cyan/50 transition-all">+10m</button>
+        <button onclick="setTimerPreset(15)" class="px-3 py-1.5 rounded-xl text-xs font-semibold glass-card text-slate-300 hover:text-white border border-white/10 hover:border-brand-cyan/50 transition-all">+15m</button>
+        <button onclick="setTimerPreset(30)" class="px-3 py-1.5 rounded-xl text-xs font-semibold glass-card text-slate-300 hover:text-white border border-white/10 hover:border-brand-cyan/50 transition-all">+30m</button>
+      </div>
+
+      <!-- Controls Action Buttons -->
+      <div class="flex items-center gap-4 sm:gap-6 mt-2">
+        <!-- Reset Button -->
+        <button id="btn-reset" onclick="resetTimer()" title="Reset (R)" class="p-3.5 rounded-2xl glass-card text-slate-400 hover:text-white border border-white/10 hover:border-slate-500 transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+          <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+        </button>
+
+        <!-- Start / Pause Main Toggle Button -->
+        <button id="btn-start" onclick="toggleStartPause()" title="Start/Pause (Space)" class="px-8 py-4 rounded-2xl font-semibold text-slate-950 bg-gradient-to-r from-brand-blue to-brand-cyan hover:brightness-110 shadow-lg shadow-brand-cyan/25 transition-all duration-200 active:scale-95 flex items-center gap-2">
+          <i data-lucide="play" id="icon-start" class="w-5 h-5 fill-slate-950"></i>
+          <span id="label-start" class="tracking-wide">Start</span>
+        </button>
+
+        <!-- Lap / Add Time Button -->
+        <button id="btn-secondary" onclick="handleSecondaryAction()" title="Lap (L)" class="p-3.5 rounded-2xl glass-card text-slate-400 hover:text-white border border-white/10 hover:border-slate-500 transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
+          <i data-lucide="flag" id="icon-secondary" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Keyboard Shortcuts Hint -->
+      <div class="mt-6 flex items-center justify-center gap-4 text-[11px] text-slate-500 font-medium">
+        <span><kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Space</kbd> Start/Pause</span>
+        <span><kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">L</kbd> Lap</span>
+        <span><kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">R</kbd> Reset</span>
+      </div>
+
+    </div>
+
+    <!-- Lap History Table Section (Stopwatch Mode Only) -->
+    <div id="lap-section" class="mt-6 glass-card rounded-3xl p-5 hidden">
+      <div class="flex justify-between items-center mb-3 px-2">
+        <h2 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+          <i data-lucide="list-ordered" class="w-4 h-4 text-brand-cyan"></i> Lap Records
+        </h2>
+        <span id="lap-count" class="text-xs font-mono text-slate-400 bg-slate-800/80 px-2.5 py-1 rounded-full border border-white/5">0 Laps</span>
+      </div>
+
+      <div class="max-h-52 overflow-y-auto pr-1">
+        <table class="w-full text-left text-xs font-mono border-collapse">
+          <thead>
+            <tr class="text-slate-500 border-b border-white/10">
+              <th class="pb-2 pl-2">Lap</th>
+              <th class="pb-2">Lap Time</th>
+              <th class="pb-2 text-right pr-2">Total Time</th>
+            </tr>
+          </thead>
+          <tbody id="lap-list" class="divide-y divide-white/5">
+            <!-- Laps dynamically injected here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center py-4 text-xs text-slate-500 font-medium">
+    Built with Precision &bull; Keerthi Web App
+  </footer>
+
+  <!-- Application Logic JavaScript -->
+  <script>
+    // State variables
+    let currentMode = 'stopwatch'; // 'stopwatch' | 'timer'
+    let isRunning = false;
+    let startTime = 0;
+    let elapsedTime = 0;
+    let timerDuration = 5 * 60 * 1000; // default 5 minutes in ms
+    let timerRemaining = 5 * 60 * 1000;
+    let animationFrameId = null;
+    let laps = [];
+    let lastLapTime = 0;
+
+    // SVG Ring constants
+    const RING_CIRCUMFERENCE = 2 * Math.PI * 44; // r=44 => ~276.46
+
+    // DOM Elements
+    const displayTime = document.getElementById('display-time');
+    const displaySubtime = document.getElementById('display-subtime');
+    const progressRing = document.getElementById('progress-ring');
+    const btnStart = document.getElementById('btn-start');
+    const iconStart = document.getElementById('icon-start');
+    const labelStart = document.getElementById('label-start');
+    const btnSecondary = document.getElementById('btn-secondary');
+    const iconSecondary = document.getElementById('icon-secondary');
+    const btnReset = document.getElementById('btn-reset');
+    const timerInputs = document.getElementById('timer-inputs');
+    const presetButtons = document.getElementById('preset-buttons');
+    const lapSection = document.getElementById('lap-section');
+    const lapList = document.getElementById('lap-list');
+    const lapCount = document.getElementById('lap-count');
+    const tabStopwatch = document.getElementById('tab-stopwatch');
+    const tabTimer = document.getElementById('tab-timer');
+    const inputH = document.getElementById('input-h');
+    const inputM = document.getElementById('input-m');
+    const inputS = document.getElementById('input-s');
+
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Sound Synthesizer using Web Audio API
+    function playAlarmSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioCtx.currentTime;
+
+        for (let i = 0; i < 3; i++) {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, now + i * 0.2); // A5 note
+          osc.frequency.setValueAtTime(1760, now + i * 0.2 + 0.1); // A6 note
+
+          gain.gain.setValueAtTime(0, now + i * 0.2);
+          gain.gain.linearRampToValueAtTime(0.3, now + i * 0.2 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.2 + 0.18);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start(now + i * 0.2);
+          osc.stop(now + i * 0.2 + 0.18);
+        }
+      } catch (e) {
+        console.error("Audio playback error:", e);
+      }
+    }
+
+    // Initialize App & Read URL Query Parameters
+    window.addEventListener('DOMContentLoaded', () => {
+      progressRing.style.strokeDasharray = `${RING_CIRCUMFERENCE}`;
+      readURLParams();
+      updateUI();
+    });
+
+    // Reading URL Query Parameters
+    function readURLParams() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const modeParam = urlParams.get('mode');
+      const timeParam = urlParams.get('t');
+
+      if (modeParam === 'timer' || modeParam === 'stopwatch') {
+        currentMode = modeParam;
+      }
+
+      if (timeParam && currentMode === 'timer') {
+        let h = 0, m = 0, s = 0;
+        const hMatch = timeParam.match(/(\d+)h/);
+        const mMatch = timeParam.match(/(\d+)m/);
+        const sMatch = timeParam.match(/(\d+)s/);
+
+        if (hMatch) h = parseInt(hMatch[1]);
+        if (mMatch) m = parseInt(mMatch[1]);
+        if (sMatch) s = parseInt(sMatch[1]);
+
+        inputH.value = h;
+        inputM.value = m;
+        inputS.value = s;
+        
+        timerDuration = ((h * 3600) + (m * 60) + s) * 1000;
+        timerRemaining = timerDuration;
+      }
+
+      switchMode(currentMode, false);
+    }
+
+    // Sync State to URL parameters without page reload
+    function syncURLParams() {
+      const url = new URL(window.location);
+      url.searchParams.set('mode', currentMode);
+
+      if (currentMode === 'timer') {
+        const h = parseInt(inputH.value) || 0;
+        const m = parseInt(inputM.value) || 0;
+        const s = parseInt(inputS.value) || 0;
+        let tStr = '';
+        if (h > 0) tStr += `${h}h`;
+        if (m > 0) tStr += `${m}m`;
+        if (s > 0) tStr += `${s}s`;
+        if (!tStr) tStr = '0s';
+        
+        url.searchParams.set('t', tStr);
+      } else {
+        url.searchParams.delete('t');
+      }
+
+      window.history.replaceState({}, '', url);
+    }
+
+    // Switch between Stopwatch and Timer modes
+    function switchMode(mode, updateParams = true) {
+      if (isRunning) pause();
+      currentMode = mode;
+
+      if (mode === 'stopwatch') {
+        tabStopwatch.className = "flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-300 bg-gradient-to-r from-brand-blue to-brand-cyan text-slate-950 shadow-md";
+        tabTimer.className = "flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-300 text-slate-400 hover:text-white";
+        progressRing.setAttribute('stroke', 'url(#cyan-gradient)');
+        timerInputs.classList.add('hidden');
+        presetButtons.classList.add('hidden');
+        lapSection.classList.remove('hidden');
+        iconSecondary.setAttribute('data-lucide', 'flag');
+      } else {
+        tabTimer.className = "flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-300 bg-gradient-to-r from-brand-pink to-brand-purple text-white shadow-md";
+        tabStopwatch.className = "flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-300 text-slate-400 hover:text-white";
+        progressRing.setAttribute('stroke', 'url(#purple-gradient)');
+        timerInputs.classList.remove('hidden');
+        presetButtons.classList.remove('hidden');
+        lapSection.classList.add('hidden');
+        iconSecondary.setAttribute('data-lucide', 'plus');
+        updateTimerFromInputs();
+      }
+
+      lucide.createIcons();
+      if (updateParams) syncURLParams();
+      resetTimer();
+    }
+
+    // Format milliseconds into HH:MM:SS and Milliseconds
+    function formatTime(ms) {
+      const totalSeconds = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      const milliseconds = Math.floor((ms % 1000) / 10);
+
+      const pad = (n) => n.toString().padStart(2, '0');
+
+      return {
+        main: `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
+        sub: `.${pad(milliseconds)}`
+      };
+    }
+
+    // Update Display and Ring Progress
+    function updateUI() {
+      if (currentMode === 'stopwatch') {
+        const time = formatTime(elapsedTime);
+        displayTime.textContent = time.main;
+        displaySubtime.textContent = time.sub;
+
+        const progress = (elapsedTime % 3000) / 3000;
+        progressRing.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - progress);
+      } else {
+        const time = formatTime(timerRemaining);
+        displayTime.textContent = time.main;
+        displaySubtime.textContent = isRunning ? "COUNTDOWN" : "READY";
+
+        const ratio = timerDuration > 0 ? timerRemaining / timerDuration : 0;
+        progressRing.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - ratio);
+      }
+    }
+
+    // Timer Loop
+    function tick() {
+      const now = performance.now();
+
+      if (currentMode === 'stopwatch') {
+        elapsedTime = now - startTime;
+        updateUI();
+        animationFrameId = requestAnimationFrame(tick);
+      } else {
+        const elapsed = now - startTime;
+        timerRemaining = Math.max(0, timerDuration - elapsed);
+        updateUI();
+
+        if (timerRemaining <= 0) {
+          pause();
+          playAlarmSound();
+          displaySubtime.textContent = "TIME'S UP!";
+          showToast("Timer completed!");
+        } else {
+          animationFrameId = requestAnimationFrame(tick);
+        }
+      }
+    }
+
+    // Start / Pause Controls
+    function toggleStartPause() {
+      if (isRunning) {
+        pause();
+      } else {
+        start();
+      }
+    }
+
+    function start() {
+      if (isRunning) return;
+      
+      if (currentMode === 'timer') {
+        updateTimerFromInputs();
+        if (timerRemaining <= 0) return;
+        startTime = performance.now() - (timerDuration - timerRemaining);
+        timerInputs.classList.add('hidden');
+      } else {
+        startTime = performance.now() - elapsedTime;
+      }
+
+      isRunning = true;
+      iconStart.setAttribute('data-lucide', 'pause');
+      labelStart.textContent = "Pause";
+      btnStart.className = "px-8 py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 shadow-lg shadow-orange-500/25 transition-all duration-200 active:scale-95 flex items-center gap-2";
+      lucide.createIcons();
+
+      animationFrameId = requestAnimationFrame(tick);
+    }
+
+    function pause() {
+      if (!isRunning) return;
+      isRunning = false;
+      cancelAnimationFrame(animationFrameId);
+
+      iconStart.setAttribute('data-lucide', 'play');
+      labelStart.textContent = "Start";
+      
+      if (currentMode === 'stopwatch') {
+        btnStart.className = "px-8 py-4 rounded-2xl font-semibold text-slate-950 bg-gradient-to-r from-brand-blue to-brand-cyan hover:brightness-110 shadow-lg shadow-brand-cyan/25 transition-all duration-200 active:scale-95 flex items-center gap-2";
+      } else {
+        btnStart.className = "px-8 py-4 rounded-2xl font-semibold text-white bg-gradient-to-r from-brand-pink to-brand-purple hover:brightness-110 shadow-lg shadow-purple-500/25 transition-all duration-200 active:scale-95 flex items-center gap-2";
+      }
+      lucide.createIcons();
+    }
+
+    function resetTimer() {
+      pause();
+      elapsedTime = 0;
+      laps = [];
+      lastLapTime = 0;
+      renderLaps();
+
+      if (currentMode === 'timer') {
+        updateTimerFromInputs();
+        timerInputs.classList.remove('hidden');
+      } else {
+        progressRing.style.strokeDashoffset = 0;
+      }
+
+      updateUI();
+    }
+
+    // Timer Inputs Listener
+    [inputH, inputM, inputS].forEach(input => {
+      input.addEventListener('input', () => {
+        updateTimerFromInputs();
+        syncURLParams();
+      });
+    });
+
+    function updateTimerFromInputs() {
+      const h = Math.max(0, parseInt(inputH.value) || 0);
+      const m = Math.max(0, parseInt(inputM.value) || 0);
+      const s = Math.max(0, parseInt(inputS.value) || 0);
+      
+      timerDuration = ((h * 3600) + (m * 60) + s) * 1000;
+      timerRemaining = timerDuration;
+      updateUI();
+    }
+
+    function setTimerPreset(minutes) {
+      if (isRunning) pause();
+      inputH.value = 0;
+      inputM.value = minutes;
+      inputS.value = 0;
+      updateTimerFromInputs();
+      syncURLParams();
+    }
+
+    // Secondary Action: Lap (Stopwatch) or +1 Minute (Timer)
+    function handleSecondaryAction() {
+      if (currentMode === 'stopwatch') {
+        recordLap();
+      } else {
+        const currentM = parseInt(inputM.value) || 0;
+        inputM.value = currentM + 1;
+        updateTimerFromInputs();
+        syncURLParams();
+        showToast("Added +1 minute");
+      }
+    }
+
+    // Stopwatch Lap Management
+    function recordLap() {
+      if (!isRunning && elapsedTime === 0) return;
+
+      const currentTotal = elapsedTime;
+      const lapTime = currentTotal - lastLapTime;
+      lastLapTime = currentTotal;
+
+      laps.unshift({
+        id: laps.length + 1,
+        lapTime: lapTime,
+        totalTime: currentTotal
+      });
+
+      renderLaps();
+    }
+
+    function renderLaps() {
+      lapCount.textContent = `${laps.length} Lap${laps.length === 1 ? '' : 's'}`;
+      lapList.innerHTML = '';
+
+      if (laps.length === 0) {
+        lapList.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-slate-600 italic">No laps recorded yet</td></tr>`;
+        return;
+      }
+
+      let minTime = Infinity;
+      let maxTime = -1;
+      if (laps.length > 1) {
+        laps.forEach(l => {
+          if (l.lapTime < minTime) minTime = l.lapTime;
+          if (l.lapTime > maxTime) maxTime = l.lapTime;
+        });
+      }
+
+      laps.forEach(lap => {
+        const formattedLap = formatTime(lap.lapTime);
+        const formattedTotal = formatTime(lap.totalTime);
+
+        let badgeClass = "text-slate-300";
+        if (laps.length > 1) {
+          if (lap.lapTime === minTime) badgeClass = "text-emerald-400 font-bold";
+          else if (lap.lapTime === maxTime) badgeClass = "text-rose-400 font-bold";
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-white/5 hover:bg-white/5 transition-colors";
+        tr.innerHTML = `
+          <td class="py-2.5 pl-2 text-slate-400">#${lap.id}</td>
+          <td class="py-2.5 ${badgeClass}">${formattedLap.main}${formattedLap.sub}</td>
+          <td class="py-2.5 text-right pr-2 text-slate-400">${formattedTotal.main}</td>
+        `;
+        lapList.appendChild(tr);
+      });
+    }
+
+    // Copy Share URL to Clipboard
+    function shareURL() {
+      syncURLParams();
+      navigator.clipboard.writeText(window.location.href).then(() => {
+        showToast("URL copied to clipboard!");
+      }).catch(() => {
+        showToast("Failed to copy URL");
+      });
+    }
+
+    // Toast Notification helper
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toast-text');
+      toastText.textContent = message;
+
+      toast.classList.remove('opacity-0', 'translate-y-2', 'pointer-events-none');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'translate-y-2', 'pointer-events-none');
+      }, 2500);
+    }
+
+    // Keyboard Shortcuts Listener
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleStartPause();
+      } else if (e.code === 'KeyR') {
+        e.preventDefault();
+        resetTimer();
+      } else if (e.code === 'KeyL') {
+        e.preventDefault();
+        handleSecondaryAction();
+      }
+    });
+  </script>
+</body>
+</html>
